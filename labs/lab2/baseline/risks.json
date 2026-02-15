@@ -1,0 +1,14 @@
+[
+  {
+    "category": "Cleartext Transmission",
+    "severity": "Critical",
+    "exploitability": "Likely",
+    "impact": "High"
+  },
+  {
+    "category": "Missing Encryption",
+    "severity": "High",
+    "exploitability": "Likely",
+    "impact": "Medium"
+  }
+]

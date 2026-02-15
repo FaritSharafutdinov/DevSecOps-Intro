@@ -1,8 +1,8 @@
 threagile_api_version: 1.0.0
 project:
-  title: Juice Shop Baseline
+  title: Juice Shop Secure
   owner: Student
-  business_criticality: important
+  business_criticality: operational
 technical_assets:
   user_browser:
     id: user_browser
@@ -19,7 +19,7 @@ technical_assets:
       direct_to_app:
         target: juice_shop
         title: Direct to App
-        protocol: http
+        protocol: https
   juice_shop:
     id: juice_shop
     title: Juice Shop App
@@ -42,7 +42,7 @@ technical_assets:
     confidentiality: internal
     integrity: mission-critical
     availability: mission-critical
-    encryption: none
+    encryption: transparent
     data_assets_stored: [user_data]
 data_assets:
   user_data:
