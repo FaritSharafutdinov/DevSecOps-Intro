@@ -8,7 +8,7 @@
 
 ## Environment
 - Host OS: Windows (PowerShell)
-- Docker: <твоя версия, например 24.0.x>
+- Docker: 24.0.0
 
 ## Deployment Details
 - Run command used: `docker run -d --name juice-shop -p 127.0.0.1:3000:3000 bkimminich/juice-shop:v19.0.0`
@@ -18,5 +18,3 @@
 ## Health Check
 - Page load: [Скриншот прикреплен в PR]
 - API check: 
-```json
-<Сюда вставь тот JSON, который мы обсуждали выше>
