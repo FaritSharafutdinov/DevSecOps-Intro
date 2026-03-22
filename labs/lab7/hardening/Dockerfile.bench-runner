@@ -1,0 +1,3 @@
+# Pre-install deps; host /etc must not be mounted during apk (would break Alpine).
+FROM alpine:3.20
+RUN apk add --no-cache bash docker-cli grep sed coreutils findutils gawk
