@@ -1,0 +1,9 @@
+Snyk scan was not completed in this environment (SNYK_TOKEN not set; snyk-results.txt may be locked by a previous run).
+
+To reproduce the lab command:
+
+  $env:SNYK_TOKEN = "<token from https://snyk.io>"
+  docker run --rm -e SNYK_TOKEN -v //var/run/docker.sock:/var/run/docker.sock `
+    snyk/snyk:docker snyk test --docker bkimminich/juice-shop:v19.0.0 --severity-threshold=high
+
+Compare output with Docker Scout (labs/lab7/scanning/scout-cves.txt).
