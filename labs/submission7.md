@@ -1,9 +1,4 @@
-# Lab 7 — Container Security: Submission
-
-**Image:** `bkimminich/juice-shop:v19.0.0`  
-**Evidence:** `labs/lab7/scanning/`, `labs/lab7/hardening/`, `labs/lab7/analysis/`
-
----
+# Labs 7 Submission - Container Security Analysis
 
 ## Task 1 — Image vulnerability and configuration analysis
 
@@ -60,108 +55,69 @@ From `labs/lab7/scanning/dockle-results.txt`:
 
 ---
 
-## Task 2 — Docker host security benchmarking (CIS Docker Benchmark)
 
-### How the audit was run
+## Task 2: Docker Host Security Benchmarking
 
-The official `docker/docker-bench-security` **container image** bundles **Docker CLI 18.06**, which cannot speak to **Engine 29.x** (API mismatch).  
+### Summary Statistics
+- Total PASS: 34
+- Total WARN: 63
+- Total FAIL: 0
+- Total INFO: 20
 
-**Working setup:** custom image `lab7-bench-runner` (`labs/lab7/hardening/Dockerfile.bench-runner`: Alpine + `bash` + `docker-cli` 26.x) + upstream scripts from `docker/docker-bench-security` mounted at `/opt/bench`, with **LF** line endings (Windows CRLF breaks the shell scripts). See `labs/lab7/hardening/README-bench.md`.
+### Analysis of Failures/Warnings
+The benchmark results show `competent_fermi` (the runner container) flagging multiple warnings. This is expected as the runner requires high privileges (mounting the docker socket, host network, etc.) to perform the audit itself. 
 
-Full log: `labs/lab7/hardening/docker-bench-results.txt`.
+Key warnings relate to:
+- **Host auditing**: Configuration missing for Docker files.
+- **Daemon configuration**: Lack of user namespace support and missing authorization plugins.
+- **Container runtime**: Running as root, sharing PID/network namespaces, and lack of resource limits in the runner container.
 
-### Summary statistics (this run)
+These warnings should be addressed for production workloads by using dedicated audit tools, non-root daemons, and strict container runtime security profiles.
 
-Counted from the log (CIS Docker Bench v1.6.0 style — scored problems appear as **[WARN]**, not **[FAIL]**):
+## Task 3: Deployment Security Configuration Analysis
 
-| Result | Count |
-|--------|------:|
-| **PASS** | 34 |
-| **WARN** | 63 |
-| **FAIL** | 0 (not used in this script output) |
-| **NOTE** | 11 |
-| **INFO** | many (section headers, N/A checks, file-not-found on Docker Desktop paths) |
+### Configuration Comparison Table
 
-Footer in log: **Checks: 117**, **Score: 0** (bench scoring formula; low score is common on dev/Desktop setups).
+| Feature | Default | Hardened | Production |
+| :--- | :--- | :--- | :--- |
+| **Capabilities** | All | NONE | NET_BIND_SERVICE |
+| **SecurityOpt** | None | no-new-privileges | no-new-privileges, seccomp=default |
+| **Memory** | Unlimited | 512m | 512m |
+| **CPUs** | Unlimited | 1.0 | 1.0 |
+| **Restart** | No | No | on-failure:3 |
 
-### Analysis of WARNs (representative)
+### Security Measure Analysis
 
-**Host / daemon hardening**
+**a) Capabilities (`--cap-drop=ALL` / `--cap-add=NET_BIND_SERVICE`)**
+- **Linux Capabilities**: Subdivide root power into smaller, distinct privileges.
+- **Attack Vector**: Dropping `ALL` prevents many privilege escalation attacks (e.g., `CAP_SYS_ADMIN`).
+- **NET_BIND_SERVICE**: Needed to bind to ports < 1024.
+- **Trade-off**: Improved security vs. potential application breakage if the app requires more privileges.
 
-- **1.1.3–1.1.5 (auditd):** No audit rules for Docker paths — weaker **forensics** after incident; add `auditd` rules per CIS for `/var/lib/docker`, daemon, etc.
-- **2.2:** Unrestricted **container-to-container** traffic on default bridge — lateral movement; use custom networks, firewall, or Kubernetes network policies.
-- **2.9:** **User namespaces** not enabled — larger blast radius if container boundary fails; enable rootless / userns-remap where supported.
-- **2.12 / 2.13:** No **auth plugin** / **remote logging** — weak multi-tenant control and log centralization.
-- **2.14:** Daemon not enforcing **no-new-privileges** globally — rely on per-container flags (as in Task 3) or `daemon.json`.
-- **2.15 / 2.16:** **Live restore** off; **userland proxy** on — trade-offs for availability vs attack surface; tune for production Linux servers.
+**b) `--security-opt=no-new-privileges`**
+- **Function**: Prevents the process (and its children) from gaining new privileges via `setuid` or `setgid` binaries.
+- **Attack Prevention**: Effectively stops many privilege escalation exploits.
+- **Downsides**: Rarely breaks legitimate application functionality.
 
-**Docker Desktop–specific**
+**c) Resource Limits (`--memory=512m`, `--cpus=1.0`)**
+- **No Limits**: Risk of resource exhaustion (DoS) affecting the host or other containers.
+- **Benefits**: Prevents memory leaks or high CPU usage from impacting the host.
+- **Risk**: Too low limits can cause application crashes (OOM kills).
 
-- **3.x “File not found”** for `docker.service`, `/etc/docker`, etc. — expected on Desktop VM layout; not comparable 1:1 to bare-metal Linux CIS hardening.
+**d) `--pids-limit=100`**
+- **Fork Bomb**: An attack where a process spawns unlimited children to crash the system.
+- **Benefit**: Restricts the number of processes a container can start.
+- **Determination**: Monitor the application baseline and set the limit slightly above peak usage.
 
-**Images (4.x)**
+**e) `--restart=on-failure:3`**
+- **Policy**: Restarts the container only if it crashes (exits with non-zero status), up to 3 times.
+- **Benefits**: Provides resiliency without infinitely restarting broken containers.
+- **Risks**: Masks underlying issues; `always` might be better for core services.
 
-- **4.5–4.6:** No **DCT** / **HEALTHCHECK** on many local images (including security tools and Juice Shop) — supply-chain and operability gaps.
+### Critical Thinking Questions
 
-**Runtime (5.x) — includes self-scan artifact**
-
-Many **5.x** WARNs reference container **`competent_fermi`** — that was the **bench runner itself** (`--net host`, `--pid host`, `CAP_AUDIT_CONTROL`, **docker.sock** mounted). Those WARNs illustrate why the audit container is privileged; they are **not** judgments on your Juice Shop workloads. For production services, apply memory/CPU/PID limits, avoid host network/PID, do not mount the socket, use **read-only rootfs** where possible, and set **health checks**.
-
----
-
-## Task 3 — Deployment security configuration analysis
-
-### Environment notes
-
-- **Docker Desktop (Windows):** `docker run ... --security-opt=seccomp=default` fails because the Windows CLI treats `default` as a **missing file path**.  
-- **Workaround (equivalent to Linux `seccomp=default`):** Moby’s `default.json` is stored at `labs/lab7/analysis/seccomp-default.json` (from `moby/moby` v27.5.1). Production profile uses:
-
-  `--security-opt seccomp=C:/Users/Ivenho/DevSecOps/DevSecOps-Intro/labs/lab7/analysis/seccomp-default.json`
-
-  On native Linux you can keep **`--security-opt seccomp=default`** or point to the same JSON file.
-
-- **CPU:** `--cpus=1.0` → **NanoCpus: 1000000000** in `docker inspect`.
-
-### 1. Configuration comparison table
-
-| Profile | Cap drop | Cap add | Security options | Memory limit | CPU | PIDs limit | Restart |
-|---------|----------|---------|------------------|--------------|-----|------------|---------|
-| **Default** | — | — | — | none (host pool) | unlimited | none | `no` |
-| **Hardened** | `ALL` | — | `no-new-privileges` | 512 MiB | 1 CPU | none | `no` |
-| **Production** | `ALL` | `NET_BIND_SERVICE` | `no-new-privileges` + **seccomp** (Moby default profile) | 512 MiB; swap capped 512 MiB | 1 CPU | 100 | `on-failure` (max 3) |
-
-**Functional check** (`labs/lab7/analysis/deployment-comparison.txt`): HTTP **200** on ports 3001–3003.
-
-### 2. Security measure analysis
-
-**(a) `--cap-drop=ALL` / `--cap-add=NET_BIND_SERVICE`:** Linux **capabilities** split root privileges. Dropping all reduces kernel attack surface after compromise. `NET_BIND_SERVICE` is for ports &lt; 1024; Juice Shop uses **3000**, so the add is often unnecessary but illustrates least-privilege tuning.
-
-**(b) `--security-opt=no-new-privileges`:** Sets `no_new_privs`, blocking many **setuid**-based escalations inside the container. Can break rare images that rely on setuid.
-
-**(c) `--memory` / `--cpus`:** Prevents **noisy neighbor** and **resource exhaustion** DoS; too low limits hurt availability.
-
-**(d) `--pids-limit`:** Mitigates **fork bombs**; set from baseline + margin.
-
-**(e) `--restart=on-failure:3`:** Restarts only on failure, capped — avoids infinite flapping; **`always`** also restarts clean exits (different ops trade-off).
-
-### 3. Critical thinking
-
-1. **Development:** **Default** or **Hardened** without aggressive swap/PID caps — fastest iteration.  
-2. **Production:** **Production** profile + orchestrator policies (TLS ingress, secrets, network policy).  
-3. **Resource limits:** Fair sharing, predictable capacity, containment of leaks and DoS.  
-4. **Default vs production if exploited:** Production removes default capabilities, blocks new privileges, enforces cgroup limits, and applies **seccomp** — blocking many syscalls needed for container breakout tooling; default leaves the standard capability set and no cgroup fence.  
-5. **More hardening:** read-only rootfs + tmpfs writes, AppArmor/SELinux, rootless, digest-pinned images, egress restrictions, centralized logging.
-
----
-
-## References
-
-- Scout: `labs/lab7/scanning/scout-cves.txt`
-- Dockle: `labs/lab7/scanning/dockle-results.txt`
-- Trivy: `labs/lab7/scanning/trivy-results.txt`
-- Grype: `labs/lab7/scanning/grype-results.txt`
-- CIS bench log: `labs/lab7/hardening/docker-bench-results.txt`
-- Bench how-to: `labs/lab7/hardening/README-bench.md`
-- Deployment comparison: `labs/lab7/analysis/deployment-comparison.txt`
-- Seccomp profile file: `labs/lab7/analysis/seccomp-default.json`
-- Host info: `labs/lab7/hardening/docker-info.txt`
+1. **Development**: Default profile for ease of debugging/development.
+2. **Production**: Production profile to enforce security-by-default and resource isolation.
+3. **Real-world Problem**: Resource limits prevent "noisy neighbor" scenarios and DoS attacks.
+4. **Attacker Action**: In Production, an attacker can't use `setuid` binaries (due to `no-new-privileges`), has no extra capabilities (if limited), and cannot exhaust system resources.
+5. **Additional Hardening**: Implement read-only root filesystems, drop `NET_RAW`, and use AppArmor/SELinux profiles.
