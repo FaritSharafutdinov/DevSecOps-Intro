@@ -1,0 +1,28 @@
+# Unhardened manifest check
+(base) PS C:\Users\Ivenho\DevSecOps\DevSecOps-Intro> docker run --rm -v "${PWD}/labs/lab9:/project" openpolicyagent/conftest:latest test /project/manifests/k8s/juice-unhardened.yaml -p /project/policies --all-namespaces
+Unable to find image 'openpolicyagent/conftest:latest' locally
+latest: Pulling from openpolicyagent/conftest
+dad68ecfc7b2: Pull complete
+c684f3af7327: Pull complete
+9355e7aacde4: Pull complete
+3ffc44404b8c: Pull complete
+f15a22133e98: Download complete
+Digest: sha256:7f8c0d4b28908b2f72abeb81697b3d4143981c09b0a03db263a8493636cd1956
+Status: Downloaded newer image for openpolicyagent/conftest:latest
+WARN - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" should define livenessProbe
+WARN - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" should define readinessProbe
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" missing resources.limits.cpu
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" missing resources.limits.memory
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" missing resources.requests.cpu
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" missing resources.requests.memory
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" must set allowPrivilegeEscalation: false
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" must set readOnlyRootFilesystem: true
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" must set runAsNonRoot: true
+FAIL - /project/manifests/k8s/juice-unhardened.yaml - k8s.security - container "juice" uses disallowed :latest tag
+
+30 tests, 20 passed, 2 warnings, 8 failures, 0 exceptions
+# Hardened manifest check
+(base) PS C:\Users\Ivenho\DevSecOps\DevSecOps-Intro> docker run --rm -v "${PWD}/labs/lab9:/project" openpolicyagent/conftest:latest test /project/manifests/k8s/juice-hardened.yaml -p /project/policies --all-namespaces
+
+30 tests, 30 passed, 0 warnings, 0 failures, 0 exceptions
+(base) PS C:\Users\Ivenho\DevSecOps\DevSecOps-Intro>
