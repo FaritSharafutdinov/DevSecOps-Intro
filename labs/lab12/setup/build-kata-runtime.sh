@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build Kata Containers 3.x Rust runtime (containerd-shim-kata-v2)
+# Build Kata Containers 3.x (runtime-rs) Rust runtime (containerd-shim-kata-v2)
 # inside a temporary Rust toolchain container, and place the binary
 # into the provided output directory. This avoids installing build
 # dependencies on the host.
@@ -24,8 +24,17 @@ docker run --rm \
   rust:1.75-bookworm bash -lc '
     set -euo pipefail
     apt-get update && apt-get install -y --no-install-recommends \
-      git make gcc pkg-config ca-certificates musl-tools libseccomp-dev && \
+      git make gcc g++ cmake pkg-config ca-certificates musl-tools libseccomp-dev && \
       update-ca-certificates || true
+
+    # Some build deps expect a MUSL C++ compiler name.
+    if ! command -v x86_64-linux-musl-g++ >/dev/null 2>&1 && command -v x86_64-linux-musl-gcc >/dev/null 2>&1; then
+      cat >/usr/local/bin/x86_64-linux-musl-g++ <<'\''EOS'\''
+#!/usr/bin/env bash
+exec /usr/bin/x86_64-linux-musl-gcc -x c++ \"$@\"
+EOS
+      chmod +x /usr/local/bin/x86_64-linux-musl-g++
+    fi
 
     # Ensure cargo/rustup are available
     export PATH=/usr/local/cargo/bin:$PATH
@@ -43,8 +52,10 @@ docker run --rm \
     # Build the runtime (shim v2)
     make
 
-    # Collect the produced binary
-    f=$(find target -type f -name containerd-shim-kata-v2 | head -n1)
+    # Collect the produced binary (path depends on how Makefile invokes cargo)
+    f=$(
+      (find target ../../target -type f -name containerd-shim-kata-v2 2>/dev/null || true) | head -n1
+    )
     if [ -z "$f" ]; then
       echo "ERROR: built binary not found" >&2; exit 1
     fi
