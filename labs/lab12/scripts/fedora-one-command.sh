@@ -57,16 +57,7 @@ install -d -m 0755 /etc/cni/net.d
 install -m 0644 labs/lab12/setup/10-bridge.conflist /etc/cni/net.d/10-bridge.conflist
 
 echo "[lab12] Build Kata shim (runtime-rs) using Podman"
-if ! command -v docker >/dev/null 2>&1; then
-  # build-kata-runtime.sh uses `docker run ...`; make it work on Fedora by mapping docker->podman.
-  cat >/usr/local/bin/docker <<'EOF'
-#!/usr/bin/env bash
-exec podman "$@"
-EOF
-  chmod +x /usr/local/bin/docker
-fi
-
-bash labs/lab12/setup/build-kata-runtime.sh
+CONTAINER_RUNNER=podman bash labs/lab12/setup/build-kata-runtime.sh
 install -m 0755 labs/lab12/setup/kata-out/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2
 containerd-shim-kata-v2 --version | tee labs/lab12/setup/kata-built-version.txt
 
