@@ -42,10 +42,27 @@ EOS
     rustc --version; cargo --version; rustup --version || true
 
     cd /work
-    if [ ! -d kata-containers ]; then
-      git clone --depth 1 https://github.com/kata-containers/kata-containers.git
+
+    # Clone repo if missing or incomplete.
+    # If a previous run left a partial directory, remove it and re-clone.
+    if [ ! -d kata-containers/.git ] || [ ! -d kata-containers/src ]; then
+      rm -rf kata-containers
+      git clone --depth 1 https://github.com/kata-containers/kata-containers.git kata-containers
     fi
-    cd kata-containers/src/runtime-rs
+
+    # Locate runtime-rs directory (layout may vary slightly across releases).
+    if [ -d kata-containers/src/runtime-rs ]; then
+      cd kata-containers/src/runtime-rs
+    elif [ -d kata-containers/src/runtime ]; then
+      cd kata-containers/src/runtime
+    else
+      echo "ERROR: cannot find runtime sources under kata-containers/src/ (expected runtime-rs)" >&2
+      echo "Repo tree (top-level):" >&2
+      ls -la kata-containers >&2 || true
+      echo "Repo tree (src):" >&2
+      ls -la kata-containers/src >&2 || true
+      exit 1
+    fi
 
     # Add MUSL target for static build expected by runtime Makefile
     rustup target add x86_64-unknown-linux-musl || true
