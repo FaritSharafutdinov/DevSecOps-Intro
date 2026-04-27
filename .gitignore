@@ -1,2 +1,6 @@
 # Lab 7: local clone of docker-bench-security (re-fetch with README-bench.md)
 labs/lab7/hardening/docker-bench-security-src/
+
+# Lab 12: local build artifacts (very large)
+labs/lab12/setup/kata-build/
+labs/lab12/setup/kata-out/
