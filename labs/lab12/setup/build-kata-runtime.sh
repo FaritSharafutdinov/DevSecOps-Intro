@@ -44,23 +44,31 @@ EOS
     cd /work
 
     # Clone repo if missing or incomplete.
-    # If a previous run left a partial directory, remove it and re-clone.
-    if [ ! -d kata-containers/.git ] || [ ! -d kata-containers/src ]; then
-      rm -rf kata-containers
-      git clone --depth 1 https://github.com/kata-containers/kata-containers.git kata-containers
+    # NOTE: /work may be a bind-mount; removing old dirs can fail due to host permissions.
+    KATA_DIR="kata-containers"
+    if [ ! -d "${KATA_DIR}/.git" ] || [ ! -d "${KATA_DIR}/src" ]; then
+      if [ -e "${KATA_DIR}" ]; then
+        chmod -R u+w "${KATA_DIR}" 2>/dev/null || true
+        rm -rf "${KATA_DIR}" 2>/dev/null || true
+      fi
+      if [ -e "${KATA_DIR}" ]; then
+        # Fallback: clone into a fresh directory (avoid permission issues on bind mounts).
+        KATA_DIR="kata-containers.$(date +%s)"
+      fi
+      git clone --depth 1 https://github.com/kata-containers/kata-containers.git "${KATA_DIR}"
     fi
 
     # Locate runtime-rs directory (layout may vary slightly across releases).
-    if [ -d kata-containers/src/runtime-rs ]; then
-      cd kata-containers/src/runtime-rs
-    elif [ -d kata-containers/src/runtime ]; then
-      cd kata-containers/src/runtime
+    if [ -d "${KATA_DIR}/src/runtime-rs" ]; then
+      cd "${KATA_DIR}/src/runtime-rs"
+    elif [ -d "${KATA_DIR}/src/runtime" ]; then
+      cd "${KATA_DIR}/src/runtime"
     else
       echo "ERROR: cannot find runtime sources under kata-containers/src/ (expected runtime-rs)" >&2
       echo "Repo tree (top-level):" >&2
-      ls -la kata-containers >&2 || true
+      ls -la "${KATA_DIR}" >&2 || true
       echo "Repo tree (src):" >&2
-      ls -la kata-containers/src >&2 || true
+      ls -la "${KATA_DIR}/src" >&2 || true
       exit 1
     fi
 
