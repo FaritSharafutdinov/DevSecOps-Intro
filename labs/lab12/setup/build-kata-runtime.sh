@@ -18,10 +18,19 @@ mkdir -p "${WORK_DIR}" "${OUT_DIR}"
 
 echo "Building Kata runtime in Docker..." >&2
 CONTAINER_RUNNER="${CONTAINER_RUNNER:-docker}"
-"${CONTAINER_RUNNER}" run --rm \
+
+# Podman on Fedora commonly runs with SELinux enforcing; bind mounts need relabeling.
+MOUNT_SUFFIX=""
+RUN_OPTS=()
+if [[ "${CONTAINER_RUNNER}" == *podman* ]]; then
+  MOUNT_SUFFIX=":Z"
+  RUN_OPTS+=(--security-opt label=disable)
+fi
+
+"${CONTAINER_RUNNER}" run --rm "${RUN_OPTS[@]}" \
   -e CARGO_NET_GIT_FETCH_WITH_CLI=true \
-  -v "${WORK_DIR}":/work \
-  -v "${OUT_DIR}":/out \
+  -v "${WORK_DIR}":/work${MOUNT_SUFFIX} \
+  -v "${OUT_DIR}":/out${MOUNT_SUFFIX} \
   rust:1.75-bookworm bash -lc '
     set -euo pipefail
     apt-get update && apt-get install -y --no-install-recommends \
