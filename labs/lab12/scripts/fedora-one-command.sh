@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage (from repo root):
 #   sudo bash labs/lab12/scripts/fedora-one-command.sh
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../.. && pwd)"
 cd "$ROOT_DIR"
 
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
