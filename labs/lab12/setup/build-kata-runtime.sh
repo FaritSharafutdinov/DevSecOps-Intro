@@ -10,9 +10,9 @@ set -euo pipefail
 #   bash labs/lab12/setup/build-kata-runtime.sh
 #   # result: labs/lab12/setup/kata-out/containerd-shim-kata-v2
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
-WORK_DIR="${ROOT_DIR}/lab12/setup/kata-build"
-OUT_DIR="${ROOT_DIR}/lab12/setup/kata-out"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../.. && pwd)"
+WORK_DIR="${ROOT_DIR}/labs/lab12/setup/kata-build"
+OUT_DIR="${ROOT_DIR}/labs/lab12/setup/kata-out"
 
 mkdir -p "${WORK_DIR}" "${OUT_DIR}"
 
